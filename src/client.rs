@@ -115,12 +115,18 @@ pub async fn handle_client(
         }
 
         let mut packet_buf = decode_buf.clone();
+
+        let packet_length = packet_buf.get_u16_le() as usize;
+        if packet_length < 2 {
+            return Err(std::io::Error::other(eyre!("Invalid packet length")));
+        }
+
         // subtract length of the length from the length :)))))))
-        let length = (packet_buf.get_u16_le() as usize) - 2;
+        let data_length = packet_length - 2;
 
         // if we have enough data to read the full packet then split it of from the decode buffer and do that
-        if packet_buf.len() >= length {
-            let mut body = packet_buf.split_to(length).freeze();
+        if packet_buf.len() >= data_length {
+            let mut body = packet_buf.split_to(data_length).freeze();
             // essentialy removes the current packet from the decude buffer
             std::mem::swap(&mut packet_buf, &mut decode_buf);
 
