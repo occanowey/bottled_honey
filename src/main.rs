@@ -19,15 +19,25 @@ pub(crate) const MAX_BUFFER_LENGTH: usize = 1024 * 5;
 
 #[derive(Debug, Parser)]
 #[command(about, version)]
+/// A very basic Terraria honeypot.
+///
+/// A Terraria honeypot, it will listen for connection requests,
+/// occasionally request a password then scrape some basic data from the client
+/// and send it to an opentelemetry endpoint.
 struct Args {
-    /// The IP:Port the honey pot should bind to.
+    /// Honeypot address.
+    ///
+    /// The address the honeypot should bind to.
+    /// (expected format: ip:port)
     #[arg(env)]
     address: SocketAddrV4,
 
+    /// Password chance.
+    ///
     /// Chance a password should be requested after connecting.
     /// (from 0.0 to 1.0)
     #[arg(env, short = 'p', default_value_t = 0.0)]
-    request_password_chance: f32,
+    password_chance: f32,
 
     #[group(flatten)]
     opentelemetry: OpenTelemetryArgs,
@@ -35,11 +45,15 @@ struct Args {
 
 #[derive(Debug, Parser)]
 struct OpenTelemetryArgs {
-    /// The open telemetry endpoint to send traces to.
+    /// OpenTelemetry endpoint.
+    ///
+    /// The opentelemetry endpoint to send traces to.
     #[arg(env = "OTEL_ENDPOINT", long = "otel-endpoint")]
     endpoint: Option<String>,
 
-    /// Extra headers to be sent to the open telemetry endpoint.
+    /// OpenTelemetry headers.
+    ///
+    /// Extra headers to be sent to the opentelemetry endpoint.
     /// (expects the format of "key=val,key=val")
     #[arg(env = "OTEL_HEADERS", long = "otel-headers")]
     headers: Option<String>,
@@ -65,7 +79,7 @@ async fn main() -> Result<()> {
 
         tokio::spawn(
             async move {
-                match client::handle_client(stream, peer_addr, args.request_password_chance).await {
+                match client::handle_client(stream, peer_addr, args.password_chance).await {
                     // todo
                     Ok(_client_info) => {
                         info!("Client disconnected.");
@@ -104,7 +118,7 @@ fn setup() -> Result<Args> {
         ),
     );
 
-    // open telemetry tracing layer if an otel endpoint is set, sends all trace & higher events
+    // opentelemetry tracing layer if an otel endpoint is set, sends all trace & higher events
     if let Some(endpoint) = &args.opentelemetry.endpoint {
         let trace_config = opentelemetry_sdk::trace::Config::default()
             .with_resource(opentelemetry_sdk::Resource::new(vec![
@@ -141,8 +155,7 @@ fn setup() -> Result<Args> {
             .tracing()
             .with_trace_config(trace_config)
             .with_exporter(trace_exporter)
-            .install_batch(opentelemetry_sdk::runtime::Tokio)
-            .unwrap();
+            .install_batch(opentelemetry_sdk::runtime::Tokio)?;
 
         let tracing_layer = tracing_opentelemetry::layer()
             .with_tracer(tracer.tracer("bottled_honey"))

@@ -67,7 +67,7 @@ where
 pub async fn handle_client(
     stream: TcpStream,
     _peer_addr: SocketAddr,
-    request_password_chance: f32,
+    password_chance: f32,
 ) -> std::io::Result<(String, Option<String>, String, String)> {
     let (mut client_reader, mut client_writer) = stream.into_split();
 
@@ -139,7 +139,7 @@ pub async fn handle_client(
                         if let Some((_, version)) = signature.split_once("Terraria") {
                             debug!("> ConnectRequest(version: {version})");
 
-                            if request_password_chance > fastrand::f32() {
+                            if password_chance > fastrand::f32() {
                                 // write RequestPassword packet
                                 write_all_timeout(&mut client_writer, b"\x03\x00\x25")
                                     .instrument(trace_span!(
