@@ -6,11 +6,7 @@ A very basic Terraria honeypot.
 
 </div>
 
----
-
 A Terraria honeypot, it will listen for connection requests, occasionally request a password then scrape some basic data from the client and send it to an opentelemetry endpoint.
-
----
 
 ```
 Usage: bottled_honey [OPTIONS] <ADDRESS>
