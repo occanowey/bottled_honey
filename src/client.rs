@@ -268,7 +268,7 @@ pub async fn handle_client(
                     async {
                         let uuid = get_length_prefixed_bytes(&mut body);
                         let uuid = String::from_utf8_lossy(&uuid);
-                        Span::current().record("uuid", &*uuid);
+                        Span::current().record("player_uuid", &*uuid);
 
                         check_zero_remaining(&body);
 
@@ -284,7 +284,7 @@ pub async fn handle_client(
                     .instrument(trace_span!(
                         "client.handle_packet",
                         packet = "ClientUUID",
-                        uuid = field::Empty
+                        player_uuid = field::Empty
                     ))
                     .await
                 }
@@ -303,8 +303,8 @@ pub async fn handle_client(
                 Span::current()
                     .record("version", &version)
                     .record("password", &password)
-                    .record("name", &name)
-                    .record("uuid", &uuid);
+                    .record("player_name", &name)
+                    .record("player_uuid", &uuid);
 
                 return Ok((version, password, name, uuid));
             }

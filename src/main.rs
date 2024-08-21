@@ -101,8 +101,8 @@ async fn main() -> Result<()> {
                         %peer_addr,
                         version = field::Empty,
                         password = field::Empty,
-                        name = field::Empty,
-                        uuid = field::Empty
+                        player_name = field::Empty,
+                        player_uuid = field::Empty
                     )),
                 );
             }
