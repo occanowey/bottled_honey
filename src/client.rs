@@ -117,7 +117,7 @@ pub async fn handle_client(
         let mut packet_buf = decode_buf.clone();
 
         let packet_length = packet_buf.get_u16_le() as usize;
-        if packet_length < 2 {
+        if packet_length < 3 {
             return Err(std::io::Error::other(eyre!("Invalid packet length")));
         }
 
