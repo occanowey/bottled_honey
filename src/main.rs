@@ -70,35 +70,46 @@ async fn main() -> Result<()> {
     info!("Server listening on {}", listener.local_addr()?);
 
     loop {
-        let (stream, peer_addr) = listener.accept().await?;
-        stream
-            .set_nodelay(true)
-            .wrap_err("Failed to set nodelay on peer")?;
-
-        info!("New connection from: {peer_addr:?}");
-
-        tokio::spawn(
-            async move {
-                match client::handle_client(stream, peer_addr, args.password_chance).await {
-                    // todo
-                    Ok(_client_info) => {
-                        info!("Client disconnected.");
-                    }
-                    Err(error) => {
-                        warn!("Client unexpectedly disconnected: {error}");
-                    }
-                }
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                // todo: wait for current connections to finish?
+                break;
             }
-            .instrument(trace_span!(
-                "client",
-                %peer_addr,
-                version = field::Empty,
-                password = field::Empty,
-                name = field::Empty,
-                uuid = field::Empty
-            )),
-        );
+
+            connection = listener.accept() => {
+                let (stream, peer_addr) = connection?;
+                stream
+                    .set_nodelay(true)
+                    .wrap_err("Failed to set nodelay on peer")?;
+
+                info!("New connection from: {peer_addr:?}");
+
+                tokio::spawn(
+                    async move {
+                        match client::handle_client(stream, peer_addr, args.password_chance).await {
+                            // todo
+                            Ok(_client_info) => {
+                                info!("Client disconnected.");
+                            }
+                            Err(error) => {
+                                warn!("Client unexpectedly disconnected: {error}");
+                            }
+                        }
+                    }
+                    .instrument(trace_span!(
+                        "client",
+                        %peer_addr,
+                        version = field::Empty,
+                        password = field::Empty,
+                        name = field::Empty,
+                        uuid = field::Empty
+                    )),
+                );
+            }
+        }
     }
+
+    Ok(())
 }
 
 fn setup() -> Result<Args> {
