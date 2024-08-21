@@ -15,7 +15,7 @@ enum State {
     },
     ReveivingInfo {
         version: String,
-        password: String,
+        password: Option<String>,
         name: Option<String>,
         uuid: Option<String>,
     },
@@ -67,7 +67,8 @@ where
 pub async fn handle_client(
     stream: TcpStream,
     _peer_addr: SocketAddr,
-) -> std::io::Result<(String, String, String, String)> {
+    request_password_chance: f32,
+) -> std::io::Result<(String, Option<String>, String, String)> {
     let (mut client_reader, mut client_writer) = stream.into_split();
 
     // not that happy with this, may come back to it
@@ -87,7 +88,6 @@ pub async fn handle_client(
             };
 
             let len = read_timeout(timeout_duration, &mut client_reader, &mut read_buf).await?;
-
             if len == 0 {
                 return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof));
             }
@@ -136,14 +136,34 @@ pub async fn handle_client(
                         if let Some((_, version)) = signature.split_once("Terraria") {
                             debug!("> ConnectRequest(version: {version})");
 
-                            // write RequestPassword packet
-                            write_all_timeout(&mut client_writer, b"\x03\x00\x25")
-                                .instrument(trace_span!("client.write", packet = "RequestPassword"))
-                                .await?;
+                            if request_password_chance > fastrand::f32() {
+                                // write RequestPassword packet
+                                write_all_timeout(&mut client_writer, b"\x03\x00\x25")
+                                    .instrument(trace_span!(
+                                        "client.write",
+                                        packet = "RequestPassword"
+                                    ))
+                                    .await?;
 
-                            Ok(State::ReceivingPassword {
-                                version: version.to_string(),
-                            })
+                                Ok(State::ReceivingPassword {
+                                    version: version.to_string(),
+                                })
+                            } else {
+                                // write ContinueConnecting packet with a 0 player id
+                                write_all_timeout(&mut client_writer, b"\x05\x00\x03\0\0")
+                                    .instrument(trace_span!(
+                                        "client.write",
+                                        packet = "ContinueConnecting(0)"
+                                    ))
+                                    .await?;
+
+                                Ok(State::ReveivingInfo {
+                                    version: version.to_string(),
+                                    password: None,
+                                    name: None,
+                                    uuid: None,
+                                })
+                            }
                         } else {
                             warn!("> Unknown ConnectRequest signature: {signature:?}");
                             Err(std::io::Error::other(eyre!("Unknown signature")))
@@ -177,7 +197,7 @@ pub async fn handle_client(
 
                         std::io::Result::Ok(State::ReveivingInfo {
                             version,
-                            password: password.to_string(),
+                            password: Some(password.to_string()),
                             name: None,
                             uuid: None,
                         })

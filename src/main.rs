@@ -24,6 +24,11 @@ struct Args {
     #[arg(env)]
     address: SocketAddrV4,
 
+    /// Chance a password should be requested after connecting.
+    /// (from 0.0 to 1.0)
+    #[arg(env, short = 'p', default_value_t = 0.0)]
+    request_password_chance: f32,
+
     #[group(flatten)]
     opentelemetry: OpenTelemetryArgs,
 }
@@ -60,7 +65,7 @@ async fn main() -> Result<()> {
 
         tokio::spawn(
             async move {
-                match client::handle_client(stream, peer_addr).await {
+                match client::handle_client(stream, peer_addr, args.request_password_chance).await {
                     // todo
                     Ok(_client_info) => {
                         info!("Client disconnected.");
