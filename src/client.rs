@@ -78,7 +78,7 @@ pub async fn handle_client(
     let mut decode_buf = BytesMut::new();
 
     loop {
-        let (mut packet_buf, length) = async {
+        async {
             // give the client a little more time if they're at the password stage
             let timeout_duration = if let State::ReceivingPassword { .. } = &connection_state {
                 // todo: need to tune this
@@ -105,15 +105,18 @@ pub async fn handle_client(
                 return Err(std::io::Error::other(eyre!("Buffer to large")));
             }
 
-            // bytes clones are cheap
-            let mut packet_buf = decode_buf.clone();
-            // subtract length of the length from the length :)))))))
-            let length = (packet_buf.get_u16_le() as usize) - 2;
-
-            Ok((packet_buf, length))
+            Ok(())
         }
         .instrument(trace_span!("client.read"))
         .await?;
+
+        if decode_buf.len() < 2 {
+            continue;
+        }
+
+        let mut packet_buf = decode_buf.clone();
+        // subtract length of the length from the length :)))))))
+        let length = (packet_buf.get_u16_le() as usize) - 2;
 
         // if we have enough data to read the full packet then split it of from the decode buffer and do that
         if packet_buf.len() >= length {
